@@ -1,0 +1,493 @@
+1. VLAN, VTP, Inter-VLAN Routing, DHCPv4 & DHCPv6
+
+1(a). Configure VLANs on DLSW and distribute them using VTP.
+1(b). Configure Inter-VLAN Routing at DLSW.
+1(c). Configure DHCPv4 in DLSW for Sales & Marketing VLANs (exclude first 10 IPs).
+1(d). Configure DHCPv6 Stateful in DLSW for Sales & Marketing VLANs.
+
+--------------------------
+
+VLAN:
+A VLAN divides one big network into smaller separate networks so departments stay isolated and organized.
+
+VTP:
+A system that automatically sends VLAN information from one main switch to other switches so you don’t create VLANs everywhere.
+
+Switch:
+A device that connects PCs and forwards their traffic inside the LAN.
+
+DLSW (3560):
+Main core switch that creates VLANs, routes between them, and gives IPs using DHCP.
+
+ALSW1 / ALSW2 (2960):
+Access switches that connect PCs and receive VLANs from the DLSW.
+
+Inter-VLAN Routing:
+Allows communication between different VLANs.
+
+DHCPv4 / DHCPv6:
+Automatically gives IPv4 and IPv6 addresses to PCs.
+
+EtherChannel:
+Multiple cables combined into one faster, stable link between switches.
+
+--------------------------------
+
+DLSW (3560):
+The main HQ switch that creates all VLANs, routes between them, and provides IPv4/IPv6 addresses using DHCP. It also acts as the VTP server, sending VLAN info to the access switches. All VLAN communication in Task 1 depends on this device.
+
+ALSW1 (2960 – Left):
+An access switch for Sales and Marketing PCs. It does not route; it only receives VLANs from the DLSW via VTP and forwards all traffic (including DHCP requests) to the DLSW through its trunk/EtherChannel link.
+
+ALSW2 (2960 – Right):
+An access switch for Admin and IT PCs. Like ALSW1, it only forwards traffic and receives VLANs from the DLSW. It depends on the DLSW for routing and DHCP, sending all VLAN traffic upward through its trunk/EtherChannel.
+
+EtherChannel:
+A combined high-speed link between the DLSW and both access switches. It carries all VLANs, DHCP traffic, and routing traffic, ensuring stable and fast communication needed for Task 1.
+
+Connected PCs:
+The department PCs sit in their assigned VLANs and are used to verify Task 1. They automatically receive IPv4/IPv6 addresses from the DLSW and confirm that VLANs, routing, VTP, and DHCP are working correctly.
+
+check vlans :
+
+Switch>en
+Switch#conf t
+Switch(config)#hostname DLSW
+Switch(config)#do sh vlan brief
+
+1. configure trunk port:
+
+A trunk port is a highway that allows all VLANs to travel between switches.
+
+Why it’s used:
+
+To send several VLANs from one switch to another
+
+To allow DLSW, ALSW1, and ALSW2 to share VLAN information
+
+To carry VTP, DHCP, and inter-VLAN routing traffic
+
+DLSW:
+Switch>en
+Switch#conf t
+Switch(config)#hostname DLSW
+Switch(config)#int range Gig 1/0/2-5
+Switch(config-if-range)#switchport mode trunk
+Switch(config-if-range)#exit
+
+ALSW1
+Switch(config)#hostname ALSW1
+ALSW1(config)#int range g0/1-2, f0/24
+ALSW1(config-if-range)#switchport mode trunk
+ALSW1(config-if-range)#exit
+
+ALSW2
+Switch>en
+Switch#conf t
+Switch(config)#hostname ALSW2
+ALSW2(config)#int range g0/1-2, f0/24
+ALSW2(config-if-range)#switchport mode trunk
+ALSW2(config-if-range)#exit
+
+2. Configure VTP server
+
+DLSW#show vtp status
+DLSW#show vtp password
+
+DLSW(config)#vtp mode server
+DLSW(config)#vtp domain xyz
+DLSW(config)#vtp password ccna
+
+3. Configure VTP client
+ALSW1> en
+ALSW1#config t
+ALSW1(config)#vtp mode client
+ALSW1(config)#vtp domain xyz
+ALSW1(config)#vtp password ccna
+
+ALSW2> en
+ALSW2#config t
+ALSW2(config)#vtp mode client
+ALSW2(config)#vtp domain xyz
+ALSW2(config)#vtp password ccna
+
+#show vtp password
+#show vtp status
+
+4. Configure Vlan in vtp server(DLSW)
+
+DLSW(config)#vlan 2
+DLSW(config-vlan)#name sales
+DLSW(config-vlan)#vlan 3
+DLSW(config-vlan)#name marketing
+DLSW(config-vlan)#vlan 4
+DLSW(config-vlan)#name administration
+DLSW(config-vlan)#vlan 5
+DLSW(config-vlan)#name it
+DLSW(config-vlan)#vlan 6
+DLSW(config-vlan)#name wireless
+DLSW(config-vlan)#exit
+
+DLSW#show vlan brief
+ALSW1#show vlan brief
+ALSW2#show vlan brief
+
+5. Configure Inter-VLAN routing
+VLAN 1: 172.16.1.0/24, 2001:211:A:1::/64;
+VLAN 2: 172.16.2.0/24, 2001:211:A:2::/64;
+VLAN 3: 172.16.3.0/26, 2001:211:A:3::/64;
+VLAN 4: 172.16.4.0/28, 2001:211:A:4::/64;
+VLAN 5: 172.16.5.0/29, 2001:211:A:5::/64;
+VLAN 6: 172.16.6.0/24, 2001:211:A:6::/64.
+
+VLAN 1 — 172.16.1.0/24 → last octet bits: 0 → binary 00000000 → 255.255.255.0
+
+VLAN 2 — 172.16.2.0/24 → last octet bits: 0 → binary 00000000 → 255.255.255.0
+
+VLAN 3 — 172.16.3.0/26 → last octet bits: 2 → binary 11000000 → 255.255.255.192
+
+VLAN 4 — 172.16.4.0/28 → last octet bits: 4 → binary 11110000 → 255.255.255.240
+
+VLAN 5 — 172.16.5.0/29 → last octet bits: 5 → binary 11111000 → 255.255.255.248
+
+VLAN 6 — 172.16.6.0/24 → last octet bits: 0 → binary 00000000 → 255.255.255.0
+
+DLSW>en
+DLSW#config t
+
+DLSW(config)#int vlan 1
+DLSW(config-if)#ip address 172.16.1.1 255.255.255.0
+DLSW(config-if)#ipv6 address 2001:211:A:1::1/64
+DLSW(config-if)#no shut
+DLSW(config-if)#exit
+
+DLSW(config)#int vlan 2
+DLSW(config-if)#ip address 172.16.2.1 255.255.255.0
+DLSW(config-if)#ipv6 address 2001:211:A:2::1/64
+DLSW(config-if)#exit
+
+DLSW(config)#int vlan 3
+DLSW(config-if)#ip address 172.16.3.1 255.255.255.192
+DLSW(config-if)#ipv6 address 2001:211:A:3::1/64
+DLSW(config-if)#exit
+
+DLSW(config)#int vlan 4
+DLSW(config-if)#ip address 172.16.4.1 255.255.255.240
+DLSW(config-if)#ipv6 address 2001:211:A:4::1/64
+DLSW(config-if)#exit
+
+DLSW(config)#int vlan 5
+DLSW(config-if)#ip address 172.16.5.1 255.255.255.248
+DLSW(config-if)#ipv6 address 2001:211:A:5::1/64
+DLSW(config-if)#exit
+
+DLSW(config)#int vlan 6
+DLSW(config-if)#ip address 172.16.6.1 255.255.255.0
+DLSW(config-if)#ipv6 address 2001:211:A:6::1/64
+DLSW(config-if)#exit
+
+Assign switchports to their corresponding Vlan:
+ALSW1>en
+ALSW1#config t
+ALSW1(config)#int f0/1
+ALSW1(config-if)#switchport mode access
+ALSW1(config-if)#switchport access vlan 2
+ALSW1(config-if)#exit
+ALSW1(config)#int f0/2
+ALSW1(config-if)#switchport mode access
+ALSW1(config-if)#switchport access vlan 3
+ALSW1(config-if)#exit
+ALSW1(config)#int f0/3
+ALSW1(config-if)#switchport mode access
+ALSW1(config-if)#switchport voice vlan 1
+ALSW1(config-if)#exit
+ALSW1(config)#int f0/4
+ALSW1(config-if)#switchport mode access
+ALSW1(config-if)#switchport access vlan 6
+ALSW1(config-if)#exit
+
+ALSW2>en
+ALSW2#conf t
+ALSW2(config)#int f0/1
+ALSW2(config-if)#switchport mode access
+ALSW2(config-if)#switchport access vlan 4
+ALSW2(config-if)#exit
+ALSW2(config)#int f0/2
+ALSW2(config-if)#switchport mode access
+ALSW2(config-if)#switchport access vlan 5
+ALSW2(config-if)#exit
+ALSW2(config)#int f0/4
+ALSW2(config-if)#switchport mode access
+ALSW2(config-if)#switchport access vlan 6
+ALSW2(config-if)#exit
+
+DLSW>en
+DLSW#conf t
+DLSW(config)# int range g1/0/6-7
+DLSW(config-if-range)#switchport mode access
+DLSW(config-if-range)#switchport access vlan 6
+DLSW(config-if-range)#exit
+
+Enable ip routing:
+DLSW(config)# ip routing
+DLSW(config)#ipv6 unicast-routing
+
+DHCP v4 config:
+
+DLSW(config)#ip dhcp excluded-address 172.16.2.1 172.16.2.10
+DLSW(config)#ip dhcp excluded-address 172.16.3.1 172.16.3.10
+
+DLSW(config)#ip dhcp pool sales
+DLSW(dhcp-config)#network 172.16.2.0 255.255.255.0
+DLSW(dhcp-config)#default-router 172.16.2.1
+DLSW(dhcp-config)#dns-server 8.8.8.8
+DLSW(dhcp-config)#exit
+
+DLSW(config)#ip dhcp pool marketing
+DLSW(dhcp-config)#network 172.16.3.0 255.255.255.192
+DLSW(dhcp-config)#default-router 172.16.3.1
+DLSW(dhcp-config)#dns-server 8.8.8.8
+DLSW(dhcp-config)#exit
+
+DHCPV6 statefull config:
+
+DLSW>en
+DLSW#conf t
+
+DLSW(config)#ipv6 dhcp pool sales-v6
+DLSW(config-dhcpv6)#address prefix 2001:211:A:2::/64
+DLSW(config-dhcpv6)#dns-server 2001:4860:4860::8888
+DLSW(config-dhcpv6)#exit
+
+DLSW(config)#int vlan 2
+DLSW(config-if)#ipv6 dhcp server sales-v6
+DLSW(config-if)#ipv6 nd managed-config-flag
+DLSW(config-if)#exit
+
+DLSW(config)#ipv6 dhcp pool marketing-v6
+DLSW(config-dhcpv6)#address prefix 2001:211:A:3::/64
+DLSW(config-dhcpv6)#dns-server 2001:4860:4860::8888
+DLSW(config-dhcpv6)#exit
+
+DLSW(config)#int vlan 3
+DLSW(config-if)#ipv6 dhcp server marketing-v6
+DLSW(config-if)#ipv6 nd managed-config-flag
+DLSW(config-if)#exit
+
+2. STP, Port Security, EtherChannel
+
+2(a). Configure Rapid-PVST on all switches.
+2(b). Configure PortFast and BPDU Guard in ALSW1.
+2(c). Configure EtherChannel using: PAgP (Group 1) and LACP (Group 2).
+2(d). Configure Switchport Security in ALSW2.
+
+Configure Rapid-PVST on all switches :
+DLSW#show spanning-tree summary
+
+ALSW1, ALSW2, DLSW(config)#spanning-tree mode rapid-pvst
+
+Configure PortFast and BPDU Guard in ALSW1 :
+ALSW1(config)#int range f0/1-2
+ALSW1(config-if-range)#spanning-tree portfast
+ALSW1(config-if-range)#spanning-tree bpduguard enable
+ALSW1(config-if-range)#exit
+
+Configure EtherChannel using: PAgP (Group 1) and LACP (Group 2) :
+
+EtherChannel using: PAgP:
+DLSW(config)#int range g1/0/2-3
+DLSW(config-if-range)#channel-group 1 mode desirable
+DLSW(config-if-range)#exit
+DLSW(config)#interface port-channel 1
+DLSW(config-if)#switchport mode trunk
+DLSW(config-if)#exit
+
+ALSW1(config)# int range g0/1-2
+ALSW1(config-if-range)#channel-group 1 mode desirable
+ALSW1(config-if-range)#exit
+ALSW1(config)#interface port-channel 1
+ALSW1(config-if)#switchport mode trunk
+
+LACP (Group 2) :
+
+DLSW(config)#int range g1/0/4-5
+DLSW(config-if-range)#channel-group 2 mode active
+DLSW(config-if-range)#exit
+DLSW(config)#interface port-channel 2
+DLSW(config-if)#switchport mode trunk
+DLSW(config-if)#exit
+
+ALSW2(config)#int range g0/1-2
+ALSW2(config-if-range)#channel-group 2 mode active
+ALSW2(config-if-range)#exit
+ALSW2(config)#interface port-channel 2
+ALSW2(config-if)#switchport mode trunk
+ALSW2(config-if)#exit
+
+DLSW#show etherchannel summary
+
+Configure Switchport Security in ALSW2 :
+
+ALSW2(config)#int range f0/1-2
+ALSW2(config-if-range)#switchport port-security
+ALSW2(config-if-range)#switchport port-security maximum 1
+ALSW2(config-if-range)#switchport port-security mac-address sticky
+ALSW2(config-if-range)#switchport port-security violation shutdown
+ALSW2(config-if-range)#exit
+
+3. Wireless LAN
+
+3(a). Configure WLC and LAPs.
+3(b). Configure WPA2-Enterprise (SSID = XYZ).
+
+admin Admin123
+set passphrase : abc123456
+
+DLSW(config)#ip dhcp pool wireless
+DLSW(dhcp-config)#network 172.16.6.0 255.255.255.0
+DLSW(dhcp-config)#default-router 172.16.6.1
+DLSW(dhcp-config)#dns-server 8.8.8.8
+DLSW(dhcp-config)#exit
+
+4. Routing
+
+4(a). Configure default route in HQ router toward ISP router.
+4(b). Configure static routes in HQ and BR router for full reachability.
+
+Router>en
+Router#conf t
+Router(config)#hostname HQ
+HQ(config)#int f0/0
+HQ(config-if)#ip address 172.16.7.2 255.255.255.252
+HQ(config-if)#no shut
+HQ(config-if)#exit
+
+DLSW>en
+DLSW#conf t
+DLSW(config)#int g1/0/1
+DLSW(config-if)#no switchport
+DLSW(config-if)#ip address 172.16.7.1 255.255.255.252
+DLSW(config-if)#no shut
+
+DLSW(config-if)#exit
+DLSW(config)#ip route 0.0.0.0 0.0.0.0 172.16.7.2
+
+HQ(config-if)#exit
+HQ(config)#int f1/0
+HQ(config-if)#ip address 123.49.41.2 255.255.255.252
+HQ(config-if)#no shut
+
+ISP>en
+ISP#conf t
+ISP(config)#int f1/0
+ISP(config-if)#ip address 123.49.41.1 255.255.255.252
+ISP(config-if)#no shut
+
+HQ(config-if)#exit
+HQ(config)#ip route 0.0.0.0 0.0.0.0 123.49.41.1
+
+HQ(config)#int s0/0/0
+HQ(config-if)#ip address 172.16.20.1 255.255.255.252
+HQ(config-if)#no shut
+
+Router>en
+Router#conf t
+Router(config)#hostname BR
+BR(config)#int s0/0/0
+BR(config-if)#ip address 172.16.20.2 255.255.255.252
+BR(config-if)#no shut
+
+HQ(config)#ip route 172.17.0.0 255.255.255.0 172.16.20.2
+
+HQ(config)#ip route 172.16.0.0 255.255.248.0 172.16.7.1
+
+BR(config)#ip route 0.0.0.0 0.0.0.0 172.16.20.1
+
+5. NAT and ACL
+
+5(a). Configure NAT in HQ router.
+5(b). Configure ACL in ISP router to block all private IP addresses.
+5(c). Configure ACL in DLSW switch to allow only IT VLAN to access HQ router & DLSW.
+
+HQ(config)#ip access-list standard NAT-SOURCE
+HQ(config-std-nacl)#permit 172.16.0.0 0.0.7.255
+HQ(config-std-nacl)#permit 172.17.0.0 0.0.3.255
+HQ(config-std-nacl)#exit
+
+HQ(config)#ip nat inside source list NAT-SOURCE interface f1/0 overload
+
+HQ(config)#int f1/0
+HQ(config-if)#ip nat outside
+HQ(config-if)# exit
+HQ(config)#int f0/0
+HQ(config-if)#ip nat inside
+HQ(config-if)#exit
+HQ(config)#int s0/0/0
+HQ(config-if)#ip nat inside
+HQ(config-if)#exit
+
+ISP(config)#ip access-list standard Restrict-Private
+ISP(config-std-nacl)#deny 10.0.0.0 0.255.255.255
+ISP(config-std-nacl)#deny 172.16.0.0 0.15.255.255
+ISP(config-std-nacl)#deny 192.168.0.0 0.0.255.255
+ISP(config-std-nacl)#permit any
+ISP(config-std-nacl)#exit
+
+ISP(config)#int f1/0
+ISP(config-if)#ip access-group Restrict-Private in
+ISP(config-if)#exit
+
+DLSW(config)#ip access-list extended IT-ACCESS
+DLSW(config-ext-nacl)#permit ip 172.16.5.0 0.0.0.7 host 172.16.7.1
+DLSW(config-ext-nacl)#permit ip 172.16.5.0 0.0.0.7 host 172.16.7.2
+DLSW(config-ext-nacl)#deny ip any any
+DLSW(config-ext-nacl)#exit
+
+DLSW(config)#int g1/0/1
+DLSW(config-if)#ip access-group IT-ACCESS in
+DLSW(config-if)#exit
+
+6. Branch
+
+6(a). Create VLANs in BR router.
+6(b). Configure Inter-VLAN routing in BR router.
+6(c). Configure Branch Wireless Router.
+
+Switch(config)#vlan 2
+Switch(config-vlan)#name employee
+Switch(config-vlan)#vlan 3
+Switch(config-vlan)#name wireless
+Switch(config-vlan)#exit
+
+BR>en
+BR#conf t
+BR(config)#int f0/0
+BR(config-if)#exit
+
+BR(config)#int f0/0.1
+BR(config-subif)#encapsulation dot1Q 1
+BR(config-subif)#ip address 172.17.1.1 255.255.255.0
+BR(config-subif)#exit
+
+BR(config)#int f0/0.2
+BR(config-subif)#encapsulation dot1Q 2
+BR(config-subif)#ip address 172.17.2.1 255.255.255.0
+BR(config-subif)#exit
+
+BR(config)#int f0/0.3
+BR(config-subif)#encapsulation dot1Q 3
+BR(config-subif)#ip address 172.17.3.1 255.255.255.0
+BR(config-subif)#exit
+
+BR(config)#int f0/0
+BR(config-if)#no shut
+
+Switch(config)#int range f0/2-3
+Switch(config-if-range)#switchport mode access
+Switch(config-if-range)#switchport access vlan 2
+Switch(config-if-range)#exit
+
+Switch(config)#int f0/4
+Switch(config-if)#switchport mode access
+Switch(config-if)#switchport access vlan 3
+Switch(config-if)#exit
